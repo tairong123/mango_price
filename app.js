@@ -4,8 +4,10 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var sqlite3 = require('sqlite3').verbose();
 
+
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
+
 
 var app = express();
 
@@ -15,8 +17,6 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
 
 // 打開 SQLite 資料庫
 var db = new sqlite3.Database(path.join(__dirname, 'db', 'sqlite.db'), (err) => {
@@ -27,23 +27,40 @@ var db = new sqlite3.Database(path.join(__dirname, 'db', 'sqlite.db'), (err) => 
     }
 });
 
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
 // 定義查詢路由
 app.get('/api/query', function(req, res, next) {
     var year = parseInt(req.query.year, 10);
     var month = parseInt(req.query.month, 10);
+    var name = req.query.name;
 
-    if (isNaN(year) || isNaN(month)) {
-        return res.json({ error: '請輸入有效的年份和月份。' });
+    if (isNaN(year) || isNaN(month) || !name) {
+        return res.json({ error: '請輸入有效的年份、月份和芒果種類。' });
     }
 
-    db.get('SELECT price, quantity FROM mangodata WHERE year = ? AND month = ?', [year, month], (err, row) => {
+    db.get('SELECT price, quantity FROM mangodata WHERE year = ? AND month = ? AND name = ?', [year, month, name], (err, row) => {
         if (err) {
             return res.status(500).json({ error: err.message });
         }
         if (!row) {
-            return res.json({ error: '未找到該日期的數據。' });
+            return res.json({ error: '未找到該日期和芒果種類的數據。' });
         }
         res.json(row);
+    });
+});
+app.get('/api/data', function(req, res, next) {
+    var name = req.query.name;
+
+    if (!name) {
+        return res.json({ error: '請提供芒果品種。' });
+    }
+
+    db.all('SELECT * FROM mangodata WHERE name = ?', [name], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows);
     });
 });
 
